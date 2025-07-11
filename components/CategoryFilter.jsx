@@ -1,19 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }) {
   const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
-  
-  const categoriesWithSubs = {
-    'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
-    'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
-    'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
-    'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
-  };
+  const [categoriesWithSubs, setCategoriesWithSubs] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  // جلب الفئات من قاعدة البيانات
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategoriesWithSubs(data);
+        } else {
+          console.error('فشل في جلب الفئات');
+          // استخدام الفئات الافتراضية في حالة الفشل
+          setCategoriesWithSubs({
+            'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
+            'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
+            'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
+            'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
+          });
+        }
+      } catch (error) {
+        console.error('خطأ في جلب الفئات:', error);
+        // استخدام الفئات الافتراضية
+        setCategoriesWithSubs({
+          'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
+          'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
+          'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
+          'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
   
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
@@ -26,6 +56,16 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
     setSelectedSubcategory(subcategory);
     onSubcategoryChange(subcategory);
   };
+
+  if (loading) {
+    return (
+      <div className="mb-6">
+        <div className="flex gap-2 mb-4">
+          <div className="px-4 py-2 bg-gray-200 rounded-full animate-pulse">جاري التحميل...</div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="mb-6">

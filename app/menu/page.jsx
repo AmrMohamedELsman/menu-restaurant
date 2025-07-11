@@ -7,6 +7,20 @@ import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
 import { useLanguage } from '@/context/LanguageContext';
 
+// مكون Loading Skeleton
+function ProductSkeleton() {
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
+      <div className="w-full h-48 bg-gray-300"></div>
+      <div className="p-4">
+        <div className="h-4 bg-gray-300 rounded mb-2"></div>
+        <div className="h-3 bg-gray-300 rounded mb-2 w-3/4"></div>
+        <div className="h-6 bg-gray-300 rounded w-1/2"></div>
+      </div>
+    </div>
+  );
+}
+
 export default function MenuPage() {
   const { t, language } = useLanguage();
   const [products, setProducts] = useState([]);
@@ -24,35 +38,20 @@ export default function MenuPage() {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/products');
+      const response = await fetch('/api/products', {
+        // إضافة cache headers لتسريع التحميل
+        headers: {
+          'Cache-Control': 'max-age=300' // 5 دقائق
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
         setFilteredProducts(data);
       } else {
         console.error('Failed to fetch products');
-        // استخدام البيانات الوهمية كبديل
-        const dummyProducts = [
-          {
-            _id: '1',
-            name: language === 'ar' ? 'برجر لحم أنجوس' : 'Angus Beef Burger',
-            description: language === 'ar' 
-              ? 'برجر لحم بقري أنجوس مشوي مع جبنة شيدر وصلصة خاصة'
-              : 'Grilled Angus beef burger with cheddar cheese and special sauce',
-            price: 65,
-            image: '/images/burger.jpg',
-            category: language === 'ar' ? 'أطباق رئيسية' : 'Main Dishes',
-            subcategory: language === 'ar' ? 'لحوم' : 'Meat',
-            calories: 750,
-            ingredients: language === 'ar' 
-              ? ['لحم أنجوس', 'خبز بريوش', 'جبنة شيدر', 'خس', 'طماطم', 'صلصة خاصة']
-              : ['Angus beef', 'Brioche bun', 'Cheddar cheese', 'Lettuce', 'Tomato', 'Special sauce'],
-            isPopular: true
-          },
-          // ... باقي المنتجات الوهمية
-        ];
-        setProducts(dummyProducts);
-        setFilteredProducts(dummyProducts);
+        setProducts([]);
+        setFilteredProducts([]);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -91,20 +90,12 @@ export default function MenuPage() {
   // دوال التعامل مع تغيير الفئات
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
-    setSelectedSubcategory('all'); // إعادة تعيين الفئة الفرعية
+    setSelectedSubcategory('all');
   };
 
   const handleSubcategoryChange = (subcategory) => {
     setSelectedSubcategory(subcategory);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -122,13 +113,18 @@ export default function MenuPage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
+        {isLoading ? (
+          // عرض Skeleton أثناء التحميل
+          Array.from({ length: 6 }).map((_, index) => (
+            <ProductSkeleton key={index} />
+          ))
+        ) : filteredProducts.length > 0 ? (
+          filteredProducts.map((product, index) => (
             <motion.div
               key={product._id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }} // تأخير تدريجي
             >
               <ProductCard product={product} />
             </motion.div>

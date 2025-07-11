@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server';
 import Product from '@/models/Product';
 import connectDB from '@/lib/mongodb';
 
-// GET - جلب جميع المنتجات
+// GET - جلب جميع المنتجات مع Cache
 export async function GET() {
   try {
     await connectDB();
-    const products = await Product.find({}).sort({ createdAt: -1 });
-    return NextResponse.json(products);
+    const products = await Product.find({}).sort({ createdAt: -1 }).lean(); // استخدام lean() لتسريع الاستعلام
+    
+    const response = NextResponse.json(products);
+    
+    // إضافة Cache headers
+    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaUpload } from 'react-icons/fa';
 import Image from 'next/image';
 
@@ -17,21 +17,65 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showAddSubcategory, setShowAddSubcategory] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   
-  // نظام الفئات والفئات الفرعية
-  const [categoriesWithSubs, setCategoriesWithSubs] = useState({
-    'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
-    'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
-    'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
-    'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
-  });
+  // نظام الفئات والفئات الفرعية - سيتم جلبها من قاعدة البيانات
+  const [categoriesWithSubs, setCategoriesWithSubs] = useState({});
   
+  // جلب الفئات من قاعدة البيانات عند تحميل المكون
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategoriesWithSubs(data);
+        } else {
+          console.error('فشل في جلب الفئات');
+          // استخدام الفئات الافتراضية في حالة الفشل
+          setCategoriesWithSubs({
+            'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
+            'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
+            'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
+            'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
+          });
+        }
+      } catch (error) {
+        console.error('خطأ في جلب الفئات:', error);
+        // استخدام الفئات الافتراضية
+        setCategoriesWithSubs({
+          'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
+          'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
+          'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
+          'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
+        });
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // إضافة مؤشر التحميل للفئات في بداية المكون
+  if (categoriesLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">جاري تحميل الفئات...</p>
+        </div>
+      </div>
+    );
+  }
+
   const defaultProduct = {
     name: '',
     description: '',
     price: 0,
     image: '',
-    category: 'أطباق رئيسية',
+    category: Object.keys(categoriesWithSubs)[0] || 'أطباق رئيسية',
     subcategory: '',
     calories: 0,
     ingredients: [],
@@ -39,13 +83,29 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
     customizationOptions: []
   };
   
+  // دالة إعادة جلب الفئات من قاعدة البيانات
+  const refreshCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        setCategoriesWithSubs(data);
+      }
+    } catch (error) {
+      console.error('خطأ في إعادة جلب الفئات:', error);
+    }
+  };
+  
   // دالة إضافة فئة جديدة
   const handleAddCategory = () => {
     if (newCategory.trim() && !categoriesWithSubs[newCategory]) {
-      setCategoriesWithSubs({
+      // إضافة الفئة محلياً أولاً
+      const updatedCategories = {
         ...categoriesWithSubs,
         [newCategory]: []
-      });
+      };
+      setCategoriesWithSubs(updatedCategories);
+      
       setEditingProduct({
         ...editingProduct,
         category: newCategory,
@@ -53,6 +113,8 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
       });
       setNewCategory('');
       setShowAddCategory(false);
+      
+      // ملاحظة: الفئة ستُحفظ في قاعدة البيانات عند حفظ المنتج
     } else if (categoriesWithSubs[newCategory]) {
       alert('هذه الفئة موجودة بالفعل');
     }
@@ -63,22 +125,27 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
     if (newSubcategory.trim() && editingProduct.category) {
       const currentSubs = categoriesWithSubs[editingProduct.category] || [];
       if (!currentSubs.includes(newSubcategory)) {
-        setCategoriesWithSubs({
+        // إضافة الفئة الفرعية محلياً أولاً
+        const updatedCategories = {
           ...categoriesWithSubs,
           [editingProduct.category]: [...currentSubs, newSubcategory]
-        });
+        };
+        setCategoriesWithSubs(updatedCategories);
+        
         setEditingProduct({
           ...editingProduct,
           subcategory: newSubcategory
         });
         setNewSubcategory('');
         setShowAddSubcategory(false);
+        
+        // ملاحظة: الفئة الفرعية ستُحفظ في قاعدة البيانات عند حفظ المنتج
       } else {
         alert('هذه الفئة الفرعية موجودة بالفعل');
       }
     }
   };
-  
+
   const handleAddNew = () => {
     setEditingProduct({ ...defaultProduct, id: Date.now().toString() });
     setIsAdding(true);
@@ -95,21 +162,11 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
   
   const handleSave = async () => {
     try {
-      setErrorMessage(''); // مسح رسائل الخطأ السابقة
+      setErrorMessage('');
       
       // التحقق من البيانات المطلوبة
-      if (!editingProduct.name.trim()) {
-        setErrorMessage('اسم المنتج مطلوب');
-        return;
-      }
-      
-      if (!editingProduct.price || editingProduct.price <= 0) {
-        setErrorMessage('سعر المنتج مطلوب ويجب أن يكون أكبر من صفر');
-        return;
-      }
-      
-      if (!editingProduct.category) {
-        setErrorMessage('فئة المنتج مطلوبة');
+      if (!editingProduct.name || !editingProduct.price || !editingProduct.category) {
+        setErrorMessage('الاسم والسعر والفئة مطلوبة');
         return;
       }
       
@@ -117,49 +174,44 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
       const method = isAdding ? 'POST' : 'PUT';
       
       const response = await fetch(url, {
-        method: method,
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editingProduct),
       });
       
-      // التحقق من نوع المحتوى
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('الخادم لا يعيد JSON صالح. تحقق من حالة الخادم.');
-      }
-      
       if (response.ok) {
-        const result = await response.json();
+        const savedProduct = await response.json();
         
         if (isAdding) {
-          setProducts([...products, result]);
+          const newProducts = [...products, savedProduct];
+          setProducts(newProducts);
+          onProductsChange?.(newProducts);
         } else {
-          setProducts(products.map(p => p._id === result._id ? result : p));
+          const updatedProducts = products.map(p => 
+            p._id === savedProduct._id ? savedProduct : p
+          );
+          setProducts(updatedProducts);
+          onProductsChange?.(updatedProducts);
         }
         
-        if (onProductsChange) {
-          onProductsChange();
-        }
+        // إعادة جلب الفئات لضمان التحديث
+        await refreshCategories();
         
         setEditingProduct(null);
+        setIsAdding(false);
         setImagePreview(null);
-        setErrorMessage('');
       } else {
         const errorData = await response.json();
-        setErrorMessage(`فشل في ${isAdding ? 'إضافة' : 'تحديث'} المنتج: ${errorData.details || errorData.error}`);
+        setErrorMessage(errorData.error || 'حدث خطأ أثناء الحفظ');
       }
     } catch (error) {
       console.error('Error saving product:', error);
-      if (error.message.includes('JSON')) {
-        setErrorMessage('خطأ في الاتصال بالخادم. تأكد من أن الخادم يعمل بشكل صحيح.');
-      } else {
-        setErrorMessage('حدث خطأ أثناء حفظ المنتج. تحقق من الاتصال بالإنترنت.');
-      }
+      setErrorMessage('حدث خطأ أثناء الحفظ');
     }
   };
-  
+
   const handleDelete = async (productId) => {
     if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
       try {
@@ -631,3 +683,5 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
   ); // 
 }
   // إضافة هذا القوس المفقود
+
+

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useLanguage } from '@/context/LanguageContext';
@@ -8,21 +9,102 @@ import AddReviewForm from '@/components/AddReviewForm';
 
 export default function HomePage() {
   const { t } = useLanguage();
+  const [backgroundImages, setBackgroundImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // جلب صور المنتجات
+  useEffect(() => {
+    const fetchProductImages = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const products = await response.json();
+          // فلترة المنتجات التي تحتوي على صور
+          const imagesWithProducts = products
+            .filter(product => product.image && product.image.trim() !== '')
+            .map(product => ({
+              image: product.image,
+              name: product.name
+            }));
+          setBackgroundImages(imagesWithProducts);
+        }
+      } catch (error) {
+        console.error('خطأ في جلب صور المنتجات:', error);
+      }
+    };
+
+    fetchProductImages();
+  }, []);
+
+  // تغيير الصورة كل ثانيتين
+  useEffect(() => {
+    if (backgroundImages.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prevIndex) => 
+          (prevIndex + 1) % backgroundImages.length
+        );
+      }, 2000); // تغيير كل ثانيتين
+
+      return () => clearInterval(interval);
+    }
+  }, [backgroundImages]);
   
   return (
     <div className="min-h-screen">
-      {/* قسم الترحيب */}
-      <section className="relative h-screen">
-        <div className="absolute inset-0 bg-black opacity-50 z-10"></div>
+      {/* قسم الترحيب مع الخلفية المتحركة */}
+      <section className="relative h-screen overflow-hidden">
+        {/* الخلفيات المتحركة */}
+        {backgroundImages.length > 0 && (
+          <div className="absolute inset-0">
+            {backgroundImages.map((item, index) => (
+              <div
+                key={index}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* طبقة التعتيم */}
+        <div className="absolute inset-0 bg-black opacity-60 z-10"></div>
+        
+        {/* المحتوى */}
         <div className="relative h-full flex items-center justify-center z-20 text-center px-4">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">{t.welcome}</h1>
-            <p className="text-xl text-white mb-8">{t.enjoyFood}</p>
-            <Link href="/menu" className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors duration-300 inline-block">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">{t.welcome}</h1>
+            <p className="text-xl text-white mb-8 drop-shadow-md">{t.enjoyFood}</p>
+            <Link href="/menu" className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors duration-300 inline-block shadow-lg hover:shadow-xl">
               {t.viewMenu}
             </Link>
           </div>
         </div>
+        
+        {/* مؤشرات الصور (اختياري) */}
+        {backgroundImages.length > 1 && (
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2">
+            {backgroundImages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentImageIndex(index)}
+                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  index === currentImageIndex 
+                    ? 'bg-white scale-110' 
+                    : 'bg-white/50 hover:bg-white/75'
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* قسم المميزات */}
