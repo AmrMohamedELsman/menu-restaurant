@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
 import CategoryFilter from '@/components/CategoryFilter';
@@ -22,7 +22,8 @@ function ProductSkeleton() {
   );
 }
 
-export default function MenuPage() {
+// مكون منفصل لاستخدام useSearchParams
+function MenuContent() {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -184,5 +185,27 @@ export default function MenuPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// المكون الرئيسي مع Suspense
+export default function MenuPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8">
+            <div className="h-10 bg-gray-300 rounded mx-auto w-64 animate-pulse mb-4"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
+      <MenuContent />
+    </Suspense>
   );
 }
