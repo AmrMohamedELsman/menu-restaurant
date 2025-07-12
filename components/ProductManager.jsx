@@ -684,4 +684,3 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
 }
   // إضافة هذا القوس المفقود
 
-

@@ -1,14 +1,16 @@
 'use client';
 
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 
-// ترجمات التطبيق
+// ترجمات التطبيق المحدثة والمكتملة
 const translations = {
   ar: {
     // الترجمات العامة
     direction: 'rtl',
     language: 'العربية',
     switchLanguage: 'English',
+    currency: 'ج.م',
+    popular: 'الأكثر طلباً',
     
     // ترجمات شريط التنقل
     home: 'الرئيسية',
@@ -40,9 +42,10 @@ const translations = {
     mostPopular: 'الأكثر طلباً',
     calories: 'سعرة حرارية',
     details: 'التفاصيل',
-    ingredients: 'المكونات:',
-    customizationOptions: 'خيارات التخصيص:',
+    ingredients: 'المكونات',
+    customizationOptions: 'خيارات التخصيص',
     noProductsFound: 'لم يتم العثور على منتجات',
+    loading: 'جاري التحميل...',
     
     // ترجمات صفحة الإعدادات
     adminPanel: 'لوحة إدارة المطعم',
@@ -62,12 +65,15 @@ const translations = {
     productName: 'اسم المنتج',
     price: 'السعر',
     category: 'الفئة',
+    subcategory: 'الفئة الفرعية',
     description: 'الوصف',
     imageUrl: 'رابط الصورة',
     ingredientsSeparated: 'المكونات (مفصولة بفواصل)',
     isPopular: 'الأكثر طلباً',
     save: 'حفظ',
     cancel: 'إلغاء',
+    edit: 'تعديل',
+    delete: 'حذف',
     actions: 'الإجراءات',
     noProductsAvailable: 'لا توجد منتجات متاحة',
     confirmDelete: 'هل أنت متأكد من حذف هذا المنتج؟',
@@ -98,22 +104,43 @@ const translations = {
     manageReviews: 'إدارة التعليقات',
     noReviews: 'لا توجد تعليقات',
     status: 'الحالة',
-    approved: 'معتمد',
     pending: 'في الانتظار',
     approve: 'اعتماد',
     reject: 'رفض',
-    delete: 'حذف',
-    confirmDelete: 'هل أنت متأكد من حذف هذا التعليق؟',
     reviewApproved: 'تم اعتماد التعليق',
     reviewRejected: 'تم رفض التعليق',
     reviewDeleted: 'تم حذف التعليق',
     error: 'حدث خطأ',
+    
+    // ترجمات الفئات
+    categories: {
+      'مقبلات': 'مقبلات',
+      'أطباق رئيسية': 'أطباق رئيسية',
+      'حلويات': 'حلويات',
+      'مشروبات': 'مشروبات',
+      'سلطات': 'سلطات',
+      'شوربات': 'شوربات'
+    },
+    subcategories: {
+      'سلطات': 'سلطات',
+      'شوربات': 'شوربات',
+      'مقبلات باردة': 'مقبلات باردة',
+      'مقبلات ساخنة': 'مقبلات ساخنة',
+      'لحوم': 'لحوم',
+      'دجاج': 'دجاج',
+      'أسماك': 'أسماك',
+      'نباتي': 'نباتي',
+      'معكرونة': 'معكرونة',
+      'أرز': 'أرز'
+    }
   },
   en: {
     // General translations
     direction: 'ltr',
     language: 'English',
     switchLanguage: 'العربية',
+    currency: 'EGP',
+    popular: 'Popular',
     
     // Navbar translations
     home: 'Home',
@@ -145,9 +172,10 @@ const translations = {
     mostPopular: 'Most Popular',
     calories: 'calories',
     details: 'Details',
-    ingredients: 'Ingredients:',
-    customizationOptions: 'Customization Options:',
+    ingredients: 'Ingredients',
+    customizationOptions: 'Customization Options',
     noProductsFound: 'No products found',
+    loading: 'Loading...',
     
     // Admin settings translations
     adminPanel: 'Restaurant Admin Panel',
@@ -167,6 +195,7 @@ const translations = {
     productName: 'Product Name',
     price: 'Price',
     category: 'Category',
+    subcategory: 'Subcategory',
     description: 'Description',
     imageUrl: 'Image URL',
     ingredientsSeparated: 'Ingredients (separated by commas)',
@@ -185,24 +214,51 @@ const translations = {
     address: 'Address: Restaurant Street, City',
     phone: 'Phone: +123 456 7890',
     email: 'Email: info@restaurant.com',
+    // Reviews translations
+    customerReviews: 'Customer Reviews',
+    shareExperience: 'Share Your Experience',
+    noReviewsYet: 'No reviews yet',
+    name: 'Name',
+    phoneNumber: 'Phone Number',
+    rating: 'Rating',
+    yourComment: 'Your Comment',
+    commentPlaceholder: 'Share your experience with us...',
+    submitReview: 'Submit Review',
+    submitting: 'Submitting...',
+    reviewNote: 'Your review will be reviewed before publishing',
+    reviewSubmitted: 'Review submitted successfully! It will be reviewed before publishing',
+    reviewError: 'Error submitting review',
+    manageReviews: 'Manage Reviews',
+    noReviews: 'No reviews',
+    status: 'Status',
+    pending: 'Pending',
+    approve: 'Approve',
+    reject: 'Reject',
+    reviewApproved: 'Review approved',
+    reviewRejected: 'Review rejected',
+    reviewDeleted: 'Review deleted',
+    error: 'An error occurred',
+    
     // Category translations
     categories: {
-      'مقبلات': 'مقبلات',
-      'أطباق رئيسية': 'أطباق رئيسية',
-      'حلويات': 'حلويات',
-      'مشروبات': 'مشروبات'
+      'مقبلات': 'Appetizers',
+      'أطباق رئيسية': 'Main Dishes',
+      'حلويات': 'Desserts',
+      'مشروبات': 'Drinks',
+      'سلطات': 'Salads',
+      'شوربات': 'Soups'
     },
     subcategories: {
-      'سلطات': 'سلطات',
-      'شوربات': 'شوربات',
-      'مقبلات باردة': 'مقبلات باردة',
-      'مقبلات ساخنة': 'مقبلات ساخنة',
-      'لحوم': 'لحوم',
-      'دجاج': 'دجاج',
-      'أسماك': 'أسماك',
-      'نباتي': 'نباتي',
-      'معكرونة': 'معكرونة',
-      'أرز': 'أرز'
+      'سلطات': 'Salads',
+      'شوربات': 'Soups',
+      'مقبلات باردة': 'Cold Appetizers',
+      'مقبلات ساخنة': 'Hot Appetizers',
+      'لحوم': 'Meat',
+      'دجاج': 'Chicken',
+      'أسماك': 'Fish',
+      'نباتي': 'Vegetarian',
+      'معكرونة': 'Pasta',
+      'أرز': 'Rice'
     }
   }
 };
@@ -211,31 +267,79 @@ const translations = {
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  // استخدام اللغة المخزنة في localStorage أو اللغة العربية كافتراضي
   const [language, setLanguage] = useState('ar');
   const [t, setT] = useState(translations.ar);
+  const [isLoading, setIsLoading] = useState(false);
   
   // تحميل اللغة المحفوظة عند تحميل الصفحة
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') || 'ar';
     setLanguage(savedLanguage);
     setT(translations[savedLanguage]);
+    
+    // تطبيق اتجاه النص فوراً
+    document.documentElement.dir = savedLanguage === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = savedLanguage;
+    
+    // إضافة كلاس CSS للغة
+    document.body.className = document.body.className.replace(/\blang-\w+\b/g, '');
+    document.body.classList.add(`lang-${savedLanguage}`);
   }, []);
   
-  // تبديل اللغة
-  const toggleLanguage = () => {
-    const newLanguage = language === 'ar' ? 'en' : 'ar';
-    setLanguage(newLanguage);
-    setT(translations[newLanguage]);
-    localStorage.setItem('language', newLanguage);
+  // تبديل اللغة مع تحسينات الأداء
+  const toggleLanguage = useCallback(() => {
+    setIsLoading(true);
     
-    // تغيير اتجاه الصفحة
-    document.documentElement.dir = newLanguage === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = newLanguage;
+    // استخدام requestAnimationFrame لضمان التحديث السلس
+    requestAnimationFrame(() => {
+      const newLanguage = language === 'ar' ? 'en' : 'ar';
+      
+      // تحدية الحالة
+      setLanguage(newLanguage);
+      setT(translations[newLanguage]);
+      
+      // حفظ في localStorage
+      localStorage.setItem('language', newLanguage);
+      
+      // تغيير اتجاه الصفحة والخصائص
+      document.documentElement.dir = newLanguage === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.lang = newLanguage;
+      
+      // تحديث كلاس CSS للغة
+      document.body.className = document.body.className.replace(/\blang-\w+\b/g, '');
+      document.body.classList.add(`lang-${newLanguage}`);
+      
+      // إضافة تأثير انتقالي سلس
+      document.body.style.transition = 'all 0.3s ease-in-out';
+      
+      // إنهاء حالة التحميل
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
+    });
+  }, [language]);
+  
+  // دالة للحصول على ترجمة الفئة
+  const getCategoryTranslation = useCallback((category) => {
+    return t.categories?.[category] || category;
+  }, [t]);
+  
+  // دالة للحصول على ترجمة الفئة الفرعية
+  const getSubcategoryTranslation = useCallback((subcategory) => {
+    return t.subcategories?.[subcategory] || subcategory;
+  }, [t]);
+  
+  const value = {
+    language,
+    t,
+    toggleLanguage,
+    isLoading,
+    getCategoryTranslation,
+    getSubcategoryTranslation
   };
   
   return (
-    <LanguageContext.Provider value={{ language, t, toggleLanguage }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

@@ -12,21 +12,63 @@ export default function HomePage() {
   const [backgroundImages, setBackgroundImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // جلب صور المنتجات
+  // جلب صور المنتجات مع تحديد 10 صور من فئات فرعية مختلفة
   useEffect(() => {
     const fetchProductImages = async () => {
       try {
         const response = await fetch('/api/products');
         if (response.ok) {
           const products = await response.json();
+          
           // فلترة المنتجات التي تحتوي على صور
-          const imagesWithProducts = products
-            .filter(product => product.image && product.image.trim() !== '')
-            .map(product => ({
-              image: product.image,
-              name: product.name
-            }));
-          setBackgroundImages(imagesWithProducts);
+          const productsWithImages = products.filter(product => 
+            product.image && product.image.trim() !== ''
+          );
+          
+          // تجميع المنتجات حسب الفئة الفرعية
+          const subcategoryGroups = {};
+          productsWithImages.forEach(product => {
+            const subcategory = product.subcategory || product.category || 'أخرى';
+            if (!subcategoryGroups[subcategory]) {
+              subcategoryGroups[subcategory] = [];
+            }
+            subcategoryGroups[subcategory].push(product);
+          });
+          
+          // اختيار صورة واحدة من كل فئة فرعية (حد أقصى 10 صور)
+          const selectedImages = [];
+          const subcategories = Object.keys(subcategoryGroups);
+          
+          for (let i = 0; i < Math.min(10, subcategories.length); i++) {
+            const subcategory = subcategories[i];
+            const randomProduct = subcategoryGroups[subcategory][
+              Math.floor(Math.random() * subcategoryGroups[subcategory].length)
+            ];
+            selectedImages.push({
+              image: randomProduct.image,
+              name: randomProduct.name,
+              subcategory: subcategory
+            });
+          }
+          
+          // إذا كان عدد الفئات الفرعية أقل من 10، أضف صور إضافية عشوائية
+          if (selectedImages.length < 10 && productsWithImages.length > selectedImages.length) {
+            const remainingProducts = productsWithImages.filter(product => 
+              !selectedImages.some(selected => selected.image === product.image)
+            );
+            
+            while (selectedImages.length < 10 && remainingProducts.length > 0) {
+              const randomIndex = Math.floor(Math.random() * remainingProducts.length);
+              const randomProduct = remainingProducts.splice(randomIndex, 1)[0];
+              selectedImages.push({
+                image: randomProduct.image,
+                name: randomProduct.name,
+                subcategory: randomProduct.subcategory || randomProduct.category || 'أخرى'
+              });
+            }
+          }
+          
+          setBackgroundImages(selectedImages);
         }
       } catch (error) {
         console.error('خطأ في جلب صور المنتجات:', error);
@@ -69,6 +111,10 @@ export default function HomePage() {
                   fill
                   className="object-cover"
                   priority={index === 0}
+                  sizes="100vw"
+                  quality={85}
+                  placeholder="blur"
+                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                 />
               </div>
             ))}
@@ -89,7 +135,7 @@ export default function HomePage() {
           </div>
         </div>
         
-        {/* مؤشرات الصور (اختياري) */}
+        {/* مؤشرات الصور */}
         {backgroundImages.length > 1 && (
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2">
             {backgroundImages.map((_, index) => (
@@ -98,11 +144,22 @@ export default function HomePage() {
                 onClick={() => setCurrentImageIndex(index)}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
                   index === currentImageIndex 
-                    ? 'bg-white scale-110' 
+                    ? 'bg-white scale-125' 
                     : 'bg-white/50 hover:bg-white/75'
                 }`}
               />
             ))}
+          </div>
+        )}
+        
+        {/* عرض اسم الفئة الفرعية الحالية */}
+        {backgroundImages.length > 0 && (
+          <div className="absolute top-8 right-8 z-30">
+            <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
+              <p className="text-sm font-medium">
+                {backgroundImages[currentImageIndex]?.subcategory}
+              </p>
+            </div>
           </div>
         )}
       </section>

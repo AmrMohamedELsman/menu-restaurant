@@ -10,8 +10,8 @@ export async function GET() {
     
     const response = NextResponse.json(products);
     
-    // إضافة Cache headers
-    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    // تقليل مدة Cache أو إزالتها في بيئة التطوير
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     
     return response;
   } catch (error) {

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
 import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
 import { useLanguage } from '@/context/LanguageContext';
+import { motion } from 'framer-motion';
 
 // مكون Loading Skeleton
 function ProductSkeleton() {
@@ -22,13 +23,15 @@ function ProductSkeleton() {
 }
 
 export default function MenuPage() {
-  const { t, language } = useLanguage();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const { t, language } = useLanguage();
+  const searchParams = useSearchParams();
+  const showPopularOnly = searchParams.get('popular') === 'true';
 
   // جلب المنتجات من API
   useEffect(() => {
@@ -64,74 +67,119 @@ export default function MenuPage() {
 
   // تطبيق الفلاتر
   useEffect(() => {
-    let result = [...products];
-    
-    // تطبيق فلتر الفئة الرئيسية
+    let filtered = products;
+
+    // فلترة المنتجات الأكثر مبيعاً
+    if (showPopularOnly) {
+      filtered = filtered.filter(product => product.isPopular);
+    }
+
+    // فلترة حسب الفئة
     if (selectedCategory !== 'all') {
-      result = result.filter(product => product.category === selectedCategory);
+      filtered = filtered.filter(product => product.category === selectedCategory);
     }
-    
-    // تطبيق فلتر الفئة الفرعية
+
+    // فلترة حسب الفئة الفرعية
     if (selectedSubcategory !== 'all') {
-      result = result.filter(product => product.subcategory === selectedSubcategory);
+      filtered = filtered.filter(product => product.subcategory === selectedSubcategory);
     }
-    
-    // تطبيق فلتر البحث
+
+    // فلترة حسب البحث
     if (searchQuery) {
-      result = result.filter(product => 
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
-    
-    setFilteredProducts(result);
-  }, [selectedCategory, selectedSubcategory, searchQuery, products]);
 
-  // دوال التعامل مع تغيير الفئات
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-    setSelectedSubcategory('all');
-  };
-
-  const handleSubcategoryChange = (subcategory) => {
-    setSelectedSubcategory(subcategory);
-  };
+    setFilteredProducts(filtered);
+  }, [products, selectedCategory, selectedSubcategory, searchQuery, showPopularOnly]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">{t.menuTitle}</h1>
-      
-      <div className="mb-6">
-        <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} placeholder={t.searchDish} />
-      </div>
-      
-      <div className="mb-8">
-        <CategoryFilter 
-          onCategoryChange={handleCategoryChange}
-          onSubcategoryChange={handleSubcategoryChange}
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className={`min-h-screen bg-gray-50 py-8 ${language === 'ar' ? 'font-arabic' : 'font-english'}`}>
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-4">
+            {showPopularOnly 
+              ? (language === 'ar' ? 'المنتجات الأكثر مبيعاً' : 'Best Selling Products')
+              : (language === 'ar' ? 'قائمة الطعام' : 'Menu')
+            }
+          </h1>
+          {showPopularOnly && (
+            <p className="text-gray-600 text-lg">
+              {language === 'ar' 
+                ? 'اكتشف أشهى أطباقنا المفضلة لدى العملاء' 
+                : 'Discover our customers\' favorite dishes'
+              }
+            </p>
+          )}
+        </div>
+
+        {/* شريط البحث والفلاتر */}
+        <div className="mb-8 space-y-4">
+          <SearchBar 
+            onSearch={setSearchQuery}
+            placeholder={language === 'ar' ? 'ابحث عن المنتجات...' : 'Search for products...'}
+          />
+          
+          <CategoryFilter 
+            onCategoryChange={setSelectedCategory}
+            onSubcategoryChange={setSelectedSubcategory}
+          />
+        </div>
+
+        {/* عرض المنتجات */}
         {isLoading ? (
-          // عرض Skeleton أثناء التحميل
-          Array.from({ length: 6 }).map((_, index) => (
-            <ProductSkeleton key={index} />
-          ))
+          // مؤشر التحميل
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))}
+          </div>
         ) : filteredProducts.length > 0 ? (
-          filteredProducts.map((product, index) => (
-            <motion.div
-              key={product._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }} // تأخير تدريجي
-            >
-              <ProductCard product={product} />
-            </motion.div>
-          ))
+          // عرض المنتجات
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {filteredProducts.map((product, index) => (
+              <motion.div
+                key={product._id || product.id || index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <ProductCard product={product} />
+              </motion.div>
+            ))}
+          </motion.div>
         ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-xl text-gray-500">{t.noProductsFound}</p>
+          // رسالة عدم وجود منتجات
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🍽️</div>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+              {language === 'ar' ? 'لا توجد منتجات متاحة' : 'No products available'}
+            </h3>
+            <p className="text-gray-500">
+              {language === 'ar' 
+                ? 'جرب تغيير معايير البحث أو الفلترة' 
+                : 'Try changing your search or filter criteria'
+              }
+            </p>
+          </div>
+        )}
+
+        {/* إحصائيات المنتجات */}
+        {!isLoading && filteredProducts.length > 0 && (
+          <div className="mt-8 text-center text-gray-600">
+            <p>
+              {language === 'ar' 
+                ? `عرض ${filteredProducts.length} من ${products.length} منتج`
+                : `Showing ${filteredProducts.length} of ${products.length} products`
+              }
+            </p>
           </div>
         )}
       </div>
