@@ -5,6 +5,7 @@ import AdminLogin from '@/components/AdminLogin';
 import ProductManager from '@/components/ProductManager';
 import ReviewManager from '@/components/ReviewManager';
 import { useLanguage } from '@/context/LanguageContext';
+import ScrollToTop from '@/components/ScrollToTop';
 
 export default function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -88,8 +89,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gray-100">
+      <main className="container mx-auto px-4">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">{t.adminPanel}</h1>
@@ -234,7 +235,8 @@ export default function AdminPage() {
               {/* محتوى التبويبات */}
               {activeTab === 'products' && (
                 <ProductManager 
-                  initialProducts={filteredProducts} 
+                  initialProducts={products} // تمرير جميع المنتجات بدلاً من المفلترة
+                  filteredProducts={filteredProducts} // تمرير المنتجات المفلترة كخاصية منفصلة
                   onProductsChange={fetchProducts}
                   selectedCategory={selectedCategory}
                 />
@@ -245,7 +247,8 @@ export default function AdminPage() {
             <AdminLogin onLogin={handleLogin} />
           )}
         </div>
-      </div>
+      </main>
+      <ScrollToTop /> {/* إضافة زر العودة إلى الأعلى */}
     </div>
   );
 }

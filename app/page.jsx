@@ -11,8 +11,10 @@ export default function HomePage() {
   const { t } = useLanguage();
   const [backgroundImages, setBackgroundImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [popularProducts, setPopularProducts] = useState([]);
   
-  // جلب صور المنتجات مع تحديد 10 صور من فئات فرعية مختلفة
+  // جلب صور المنتجات مع تحسين الأداء
   useEffect(() => {
     const fetchProductImages = async () => {
       try {
@@ -25,7 +27,11 @@ export default function HomePage() {
             product.image && product.image.trim() !== ''
           );
           
-          // تجميع المنتجات حسب الفئة الفرعية
+          // الحصول على المنتجات الأكثر شعبية
+          const popular = products.filter(product => product.isPopular).slice(0, 6);
+          setPopularProducts(popular);
+          
+          // تحسين اختيار الصور للخلفية - تقليل العدد لتحسين الأداء
           const subcategoryGroups = {};
           productsWithImages.forEach(product => {
             const subcategory = product.subcategory || product.category || 'أخرى';
@@ -35,11 +41,11 @@ export default function HomePage() {
             subcategoryGroups[subcategory].push(product);
           });
           
-          // اختيار صورة واحدة من كل فئة فرعية (حد أقصى 10 صور)
+          // تقليل عدد الصور إلى 5 بدلاً من 10 لتحسين الأداء
           const selectedImages = [];
           const subcategories = Object.keys(subcategoryGroups);
           
-          for (let i = 0; i < Math.min(10, subcategories.length); i++) {
+          for (let i = 0; i < Math.min(5, subcategories.length); i++) {
             const subcategory = subcategories[i];
             const randomProduct = subcategoryGroups[subcategory][
               Math.floor(Math.random() * subcategoryGroups[subcategory].length)
@@ -51,52 +57,61 @@ export default function HomePage() {
             });
           }
           
-          // إذا كان عدد الفئات الفرعية أقل من 10، أضف صور إضافية عشوائية
-          if (selectedImages.length < 10 && productsWithImages.length > selectedImages.length) {
-            const remainingProducts = productsWithImages.filter(product => 
-              !selectedImages.some(selected => selected.image === product.image)
-            );
-            
-            while (selectedImages.length < 10 && remainingProducts.length > 0) {
-              const randomIndex = Math.floor(Math.random() * remainingProducts.length);
-              const randomProduct = remainingProducts.splice(randomIndex, 1)[0];
-              selectedImages.push({
-                image: randomProduct.image,
-                name: randomProduct.name,
-                subcategory: randomProduct.subcategory || randomProduct.category || 'أخرى'
-              });
-            }
-          }
-          
           setBackgroundImages(selectedImages);
+          
+          // تحميل الصور مسبقاً
+          const imagePromises = selectedImages.map((item, index) => {
+            return new Promise((resolve) => {
+              const img = new window.Image();
+              img.onload = () => resolve();
+              img.onerror = () => resolve(); // حتى لو فشل التحميل
+              img.src = item.image;
+            });
+          });
+          
+          // انتظار تحميل أول صورتين على الأقل
+          Promise.all(imagePromises.slice(0, 2)).then(() => {
+            setImagesLoaded(true);
+          });
         }
       } catch (error) {
         console.error('خطأ في جلب صور المنتجات:', error);
+        setImagesLoaded(true); // إظهار المحتوى حتى لو فشل التحميل
       }
     };
 
     fetchProductImages();
   }, []);
 
-  // تغيير الصورة كل ثانيتين
+  // تغيير الصورة كل 3 ثوان بدلاً من ثانيتين
   useEffect(() => {
-    if (backgroundImages.length > 0) {
+    if (backgroundImages.length > 0 && imagesLoaded) {
       const interval = setInterval(() => {
         setCurrentImageIndex((prevIndex) => 
           (prevIndex + 1) % backgroundImages.length
         );
-      }, 2000); // تغيير كل ثانيتين
+      }, 3000); // تغيير كل 3 ثوان
 
       return () => clearInterval(interval);
     }
-  }, [backgroundImages]);
+  }, [backgroundImages, imagesLoaded]);
   
   return (
     <div className="min-h-screen">
       {/* قسم الترحيب مع الخلفية المتحركة */}
       <section className="relative h-screen overflow-hidden">
+        {/* Loading state للخلفية */}
+        {!imagesLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+              <p className="text-lg">جاري تحميل الصور...</p>
+            </div>
+          </div>
+        )}
+        
         {/* الخلفيات المتحركة */}
-        {backgroundImages.length > 0 && (
+        {backgroundImages.length > 0 && imagesLoaded && (
           <div className="absolute inset-0">
             {backgroundImages.map((item, index) => (
               <div
@@ -112,7 +127,7 @@ export default function HomePage() {
                   className="object-cover"
                   priority={index === 0}
                   sizes="100vw"
-                  quality={85}
+                  quality={75} // تقليل الجودة لتحسين الأداء
                   placeholder="blur"
                   blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                 />
@@ -126,17 +141,36 @@ export default function HomePage() {
         
         {/* المحتوى */}
         <div className="relative h-full flex items-center justify-center z-20 text-center px-4">
-          <div className="max-w-3xl">
+          <div className="max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">{t.welcome}</h1>
             <p className="text-xl text-white mb-8 drop-shadow-md">{t.enjoyFood}</p>
-            <Link href="/menu" className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors duration-300 inline-block shadow-lg hover:shadow-xl">
-              {t.viewMenu}
-            </Link>
+            
+            {/* مجموعة الأزرار المحسنة */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link href="/menu" className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 inline-block shadow-lg hover:shadow-xl hover:scale-105">
+                {t.viewMenu}
+              </Link>
+              
+              <Link href="/menu?filter=popular" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 inline-block shadow-lg hover:shadow-xl hover:scale-105">
+                🔥 الأكثر مبيعاً
+              </Link>
+              
+              <button 
+                onClick={() => {
+                  document.getElementById('reviews-section')?.scrollIntoView({ 
+                    behavior: 'smooth' 
+                  });
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 inline-block shadow-lg hover:shadow-xl hover:scale-105"
+              >
+                💬 اكتب تعليق
+              </button>
+            </div>
           </div>
         </div>
         
         {/* مؤشرات الصور */}
-        {backgroundImages.length > 1 && (
+        {backgroundImages.length > 1 && imagesLoaded && (
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2">
             {backgroundImages.map((_, index) => (
               <button
@@ -153,7 +187,7 @@ export default function HomePage() {
         )}
         
         {/* عرض اسم الفئة الفرعية الحالية */}
-        {backgroundImages.length > 0 && (
+        {backgroundImages.length > 0 && imagesLoaded && (
           <div className="absolute top-8 right-8 z-30">
             <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
               <p className="text-sm font-medium">
@@ -163,6 +197,42 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* قسم المنتجات الأكثر شعبية */}
+      {popularProducts.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">🔥 الأكثر مبيعاً</h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {popularProducts.map((product, index) => (
+                <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <div className="h-48 relative">
+                    <Image
+                      src={product.image || '/placeholder-food.jpg'}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-lg mb-2">{product.name}</h3>
+                    <p className="text-gray-600 text-sm mb-2">{product.category}</p>
+                    <p className="text-green-600 font-bold text-xl">{product.price} ج.م</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="text-center">
+              <Link href="/menu?filter=popular" className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-300">
+                عرض جميع المنتجات الأكثر مبيعاً
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* قسم المميزات */}
       <section className="py-16 bg-gray-50">
@@ -204,7 +274,9 @@ export default function HomePage() {
       </section>
 
       {/* قسم التعليقات */}
-      <ReviewsSection />
+      <div id="reviews-section">
+        <ReviewsSection />
+      </div>
       
       {/* قسم إضافة تعليق */}
       <AddReviewForm />

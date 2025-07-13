@@ -4,14 +4,17 @@ import { useState, useRef, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaUpload } from 'react-icons/fa';
 import Image from 'next/image';
 
-export default function ProductManager({ initialProducts = [], onProductsChange }) {
+export default function ProductManager({ initialProducts = [], filteredProducts = [], onProductsChange }) {
   const [products, setProducts] = useState(initialProducts);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
+  const editFormRef = useRef(null);
   
-  // إضافة state للفئات الجديدة
+  // Add this line to define displayProducts
+  const displayProducts = filteredProducts.length > 0 ? filteredProducts : products;
+  
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -156,60 +159,21 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
     setEditingProduct({ ...product });
     setIsAdding(false);
     setImagePreview(product.image);
-  };
-  
-  
-  
-  const handleSave = async () => {
-    try {
-      setErrorMessage('');
-      
-      // التحقق من البيانات المطلوبة
-      if (!editingProduct.name || !editingProduct.price || !editingProduct.category) {
-        setErrorMessage('الاسم والسعر والفئة مطلوبة');
-        return;
-      }
-      
-      const url = isAdding ? '/api/products' : `/api/products/${editingProduct._id}`;
-      const method = isAdding ? 'POST' : 'PUT';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editingProduct),
-      });
-      
-      if (response.ok) {
-        const savedProduct = await response.json();
-        
-        if (isAdding) {
-          const newProducts = [...products, savedProduct];
-          setProducts(newProducts);
-          onProductsChange?.(newProducts);
-        } else {
-          const updatedProducts = products.map(p => 
-            p._id === savedProduct._id ? savedProduct : p
-          );
-          setProducts(updatedProducts);
-          onProductsChange?.(updatedProducts);
+    
+    // التمرير التلقائي لنموذج التعديل
+    setTimeout(() => {
+      if (editFormRef.current) {
+        editFormRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+        // التركيز على أول حقل في النموذج
+        const firstInput = editFormRef.current.querySelector('input[name="name"]');
+        if (firstInput) {
+          firstInput.focus();
         }
-        
-        // إعادة جلب الفئات لضمان التحديث
-        await refreshCategories();
-        
-        setEditingProduct(null);
-        setIsAdding(false);
-        setImagePreview(null);
-      } else {
-        const errorData = await response.json();
-        setErrorMessage(errorData.error || 'حدث خطأ أثناء الحفظ');
       }
-    } catch (error) {
-      console.error('Error saving product:', error);
-      setErrorMessage('حدث خطأ أثناء الحفظ');
-    }
+    }, 100);
   };
 
   const handleDelete = async (productId) => {
@@ -220,7 +184,8 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
         });
         
         if (response.ok) {
-          setProducts(products.filter(p => p._id !== productId));
+          const updatedProducts = products.filter(p => p._id !== productId);
+          setProducts(updatedProducts);
           // إعلام المكون الأب بالتغيير
           if (onProductsChange) {
             onProductsChange();
@@ -240,6 +205,83 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
     setImagePreview(null);
   };
   
+  // إضافة دالة handleSave المفقودة
+  const handleSave = async () => {
+    try {
+      setErrorMessage('');
+      
+      // التحقق من البيانات المطلوبة
+      if (!editingProduct.name || !editingProduct.price || !editingProduct.category) {
+        setErrorMessage('يرجى ملء جميع الحقول المطلوبة (الاسم، السعر، الفئة)');
+        return;
+      }
+      
+      const productData = {
+        name: editingProduct.name,
+        description: editingProduct.description,
+        price: parseFloat(editingProduct.price),
+        image: editingProduct.image,
+        category: editingProduct.category,
+        subcategory: editingProduct.subcategory,
+        calories: parseInt(editingProduct.calories) || 0,
+        ingredients: editingProduct.ingredients,
+        isPopular: editingProduct.isPopular,
+        customizationOptions: editingProduct.customizationOptions || []
+      };
+      
+      let response;
+      if (isAdding) {
+        // إضافة منتج جديد
+        response = await fetch('/api/products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(productData),
+        });
+      } else {
+        // تحديث منتج موجود
+        response = await fetch(`/api/products/${editingProduct._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(productData),
+        });
+      }
+      
+      if (response.ok) {
+        const savedProduct = await response.json();
+        
+        if (isAdding) {
+          // إضافة المنتج الجديد للقائمة
+          setProducts([...products, savedProduct]);
+        } else {
+          // تحديث المنتج في القائمة
+          setProducts(products.map(p => 
+            p._id === editingProduct._id ? savedProduct : p
+          ));
+        }
+        
+        // إعادة تعيين النموذج
+        setEditingProduct(null);
+        setImagePreview(null);
+        setIsAdding(false);
+        
+        // إعلام المكون الأب بالتغيير
+        if (onProductsChange) {
+          onProductsChange();
+        }
+      } else {
+        const errorData = await response.json();
+        setErrorMessage(errorData.message || 'فشل في حفظ المنتج');
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+      setErrorMessage('حدث خطأ أثناء حفظ المنتج');
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     let newValue = type === 'checkbox' ? checked : value;
@@ -323,7 +365,7 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
       )}
       
       {editingProduct ? (
-        <div className="bg-gray-50 p-4 rounded-md mb-6">
+        <div ref={editFormRef} className="bg-gray-50 p-4 rounded-md mb-6">
           <h3 className="text-xl font-bold mb-4">{isAdding ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -568,8 +610,8 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
             </tr>
           </thead>
           <tbody className="text-gray-600 text-sm">
-            {products.length > 0 ? (
-              products.map((product, index) => (
+            {displayProducts.length > 0 ? (
+              displayProducts.map((product, index) => (
                 <tr key={product.id || product._id || index} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="py-3 px-6 text-right">
                     <div className="flex items-center">
@@ -597,7 +639,7 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
                         <FaEdit />
                       </button>
                       <button
-                        onClick={() => handleDelete(product.id)}
+                        onClick={() => handleDelete(product._id)}
                         className="transform hover:text-red-500 hover:scale-110 transition-all duration-300"
                       >
                         <FaTrash />
@@ -607,21 +649,22 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
                 </tr>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                لا توجد منتجات متاحة
-              </div>
+              <tr>
+                <td colSpan="5" className="text-center py-8 text-gray-500">
+                  لا توجد منتجات متاحة
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
       
-      {/* تخطيط البطاقات للهواتف المحمولة - حجم أصغر */}
+      {/* تخطيط البطاقات للهواتف المحمولة */}
       <div className="md:hidden space-y-3">
-        {products.length > 0 ? (
-          products.map((product, index) => (
+        {displayProducts.length > 0 ? (
+          displayProducts.map((product, index) => (
             <div key={product.id || product._id || index} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-              {/* الصورة في الأعلى - تملأ المساحة كاملة */}
-              // في قسم عرض المنتجات للموبايل:
+              {/* الصورة في الأعلى */}
               <div className="h-40 bg-gray-100 relative flex items-center justify-center overflow-hidden rounded-t-lg">
                 {product.image ? (
                   <Image
@@ -653,7 +696,7 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
                   </div>
                 </div>
                 
-                {/* أزرار الإجراءات - أصغر حجماً */}
+                {/* أزرار الإجراءات */}
                 <div className="flex justify-end space-x-2 mt-3">
                   <button
                     onClick={() => handleEdit(product)}
@@ -663,7 +706,7 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
                     تعديل
                   </button>
                   <button
-                    onClick={() => handleDelete(product.id)}
+                    onClick={() => handleDelete(product._id)}
                     className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md text-xs flex items-center"
                   >
                     <FaTrash className="mr-1" />
@@ -680,7 +723,9 @@ export default function ProductManager({ initialProducts = [], onProductsChange 
         )}
       </div>
     </div>
-  ); // 
+  );
 }
-  // إضافة هذا القوس المفقود
+      
+
+
 

@@ -42,14 +42,34 @@ function MenuContent() {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
+      
+      // التحقق من التخزين المؤقت أولاً
+      const cachedProducts = localStorage.getItem('products_cache');
+      const cacheTime = localStorage.getItem('products_cache_time');
+      const now = Date.now();
+      
+      // استخدام البيانات المخزنة إذا كانت حديثة (أقل من 5 دقائق)
+      if (cachedProducts && cacheTime && (now - parseInt(cacheTime)) < 300000) {
+        const data = JSON.parse(cachedProducts);
+        setProducts(data);
+        setFilteredProducts(data);
+        setIsLoading(false);
+        return;
+      }
+      
       const response = await fetch('/api/products', {
-        // إضافة cache headers لتسريع التحميل
         headers: {
-          'Cache-Control': 'max-age=300' // 5 دقائق
+          'Cache-Control': 'max-age=300'
         }
       });
+      
       if (response.ok) {
         const data = await response.json();
+        
+        // حفظ في التخزين المؤقت
+        localStorage.setItem('products_cache', JSON.stringify(data));
+        localStorage.setItem('products_cache_time', now.toString());
+        
         setProducts(data);
         setFilteredProducts(data);
       } else {
@@ -129,33 +149,27 @@ function MenuContent() {
           />
         </div>
 
-        {/* عرض المنتجات */}
+        {/* عرض المنتجات مع تحسين الأداء */}
         {isLoading ? (
-          // مؤشر التحميل
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
               <ProductSkeleton key={index} />
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          // عرض المنتجات
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProducts.map((product, index) => (
-              <motion.div
+              <div
                 key={product._id || product.id || index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                style={{
+                  animationDelay: `${Math.min(index * 50, 500)}ms`
+                }}
+                className="animate-fade-in"
               >
                 <ProductCard product={product} />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         ) : (
           // رسالة عدم وجود منتجات
           <div className="text-center py-16">

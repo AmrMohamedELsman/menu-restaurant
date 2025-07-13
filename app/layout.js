@@ -3,6 +3,7 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { LanguageProvider } from '@/context/LanguageContext';
+import ScrollToTop from '@/components/ScrollToTop';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,8 +18,9 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <LanguageProvider>
           <Navbar />
-          <main>{children}</main>
+          {children}
           <Footer />
+          <ScrollToTop /> {/* إضافة زر العودة إلى الأعلى */}
         </LanguageProvider>
       </body>
     </html>

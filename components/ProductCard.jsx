@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { FaHeart, FaRegHeart, FaInfoCircle } from 'react-icons/fa';
@@ -18,72 +18,103 @@ export default function ProductCard({ product }) {
   const [isTranslating, setIsTranslating] = useState(false);
   const { t, language, getCategoryTranslation, getSubcategoryTranslation } = useLanguage();
   
-  // ترجمة معلومات المنتج عند تغيير اللغة
-  useEffect(() => {
-    const translateProductInfo = async () => {
-      if (language === 'en' && !isTranslating) {
-        setIsTranslating(true);
-        try {
-          const [translatedName, translatedDescription, translatedIngredients] = await Promise.all([
-            translateText(product.name, 'ar', 'en'),
-            translateText(product.description, 'ar', 'en'),
-            product.ingredients ? translateText(
-              Array.isArray(product.ingredients) 
-                ? product.ingredients.join(', ') 
-                : product.ingredients, 
-              'ar', 'en'
-            ) : null
-          ]);
-          
-          setTranslatedProduct({
-            name: translatedName,
-            description: translatedDescription,
-            ingredients: translatedIngredients
-          });
-        } catch (error) {
-          console.error('Translation error:', error);
-          // في حالة فشل الترجمة، استخدم النص الأصلي
-          setTranslatedProduct({
-            name: product.name,
-            description: product.description,
-            ingredients: product.ingredients
-          });
-        } finally {
+  // تحسين الترجمة مع التخزين المؤقت
+  const translateProductInfo = useCallback(async () => {
+    if (language === 'en' && !isTranslating) {
+      setIsTranslating(true);
+      try {
+        // التحقق من التخزين المؤقت أولاً
+        const cacheKey = `translation_${product._id || product.id}_en`;
+        const cachedTranslation = localStorage.getItem(cacheKey);
+        
+        if (cachedTranslation) {
+          setTranslatedProduct(JSON.parse(cachedTranslation));
           setIsTranslating(false);
+          return;
         }
-      } else if (language === 'ar') {
-        // العودة للنص العربي الأصلي
+        
+        // ترجمة فقط النصوص الموجودة
+        const translationPromises = [];
+        
+        if (product.name) {
+          translationPromises.push(translateText(product.name, 'en', 'ar'));
+        }
+        
+        if (product.description) {
+          translationPromises.push(translateText(product.description, 'en', 'ar'));
+        }
+        
+        if (product.ingredients) {
+          const ingredientsText = Array.isArray(product.ingredients) 
+            ? product.ingredients.join(', ') 
+            : product.ingredients;
+          translationPromises.push(translateText(ingredientsText, 'en', 'ar'));
+        }
+        
+        const results = await Promise.all(translationPromises);
+        
+        const translated = {
+          name: product.name ? results[0] : product.name,
+          description: product.description ? results[1] : product.description,
+          ingredients: product.ingredients ? results[2] : product.ingredients
+        };
+        
+        // حفظ في التخزين المؤقت
+        localStorage.setItem(cacheKey, JSON.stringify(translated));
+        
+        setTranslatedProduct(translated);
+      } catch (error) {
+        console.error('Translation error:', error);
         setTranslatedProduct({
           name: product.name,
           description: product.description,
           ingredients: product.ingredients
         });
+      } finally {
+        setIsTranslating(false);
       }
-    };
-
+    } else if (language === 'ar') {
+      setTranslatedProduct({
+        name: product.name,
+        description: product.description,
+        ingredients: product.ingredients
+      });
+    }
+  }, [language, product.name, product.description, product.ingredients, product._id, product.id, isTranslating]);
+  
+  useEffect(() => {
     translateProductInfo();
-  }, [language, product.name, product.description, product.ingredients]);
+  }, [translateProductInfo]);
+  
+  // تحسين عرض الصورة
+  const imageComponent = useMemo(() => {
+    if (product.image) {
+      return (
+        <Image
+          src={product.image}
+          alt={translatedProduct.name}
+          fill
+          className="object-cover transition-transform duration-300 hover:scale-105"
+          loading="lazy"
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
+      );
+    }
+    return (
+      <div className="text-gray-400 text-center">
+        <div className="text-4xl mb-2">🍽️</div>
+        <p className="text-sm">{language === 'ar' ? 'لا توجد صورة' : 'No Image'}</p>
+      </div>
+    );
+  }, [product.image, translatedProduct.name, language]);
   
   return (
     <div className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 ${language === 'ar' ? 'font-arabic' : 'font-english'}`}>
       <div className="relative">
         <div className="w-full h-48 bg-gray-200 relative flex items-center justify-center">
-          {product.image ? (
-            <Image
-              src={product.image}
-              alt={translatedProduct.name}
-              fill
-              className="object-cover transition-transform duration-300 hover:scale-105"
-              loading="lazy"
-              placeholder="blur"
-              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-            />
-          ) : (
-            <div className="text-gray-400 text-center">
-              <div className="text-4xl mb-2">🍽️</div>
-              <p className="text-sm">{language === 'ar' ? 'لا توجد صورة' : 'No Image'}</p>
-            </div>
-          )}
+          {imageComponent}
         </div>
         
         {product.isPopular && (
