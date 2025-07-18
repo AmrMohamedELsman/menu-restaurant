@@ -18,16 +18,7 @@ export async function GET() {
       categoriesWithSubs[category] = subcategories.filter(sub => sub && sub.trim() !== '');
     }
     
-    // إضافة الفئات الافتراضية إذا لم توجد فئات في قاعدة البيانات
-    if (Object.keys(categoriesWithSubs).length === 0) {
-      return NextResponse.json({
-        'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
-        'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
-        'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
-        'مشروبات': ['عصائر طبيعية', 'مشروبات ساخنة', 'مشروبات باردة', 'عصائر مخلوطة']
-      });
-    }
-    
+    // إرجاع الفئات الموجودة فقط (حتى لو كانت فارغة)
     return NextResponse.json(categoriesWithSubs);
   } catch (error) {
     console.error('Error fetching categories:', error);

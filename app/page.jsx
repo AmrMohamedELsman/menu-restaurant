@@ -31,7 +31,7 @@ export default function HomePage() {
           const popular = products.filter(product => product.isPopular).slice(0, 6);
           setPopularProducts(popular);
           
-          // تحسين اختيار الصور للخلفية - تقليل العدد لتحسين الأداء
+          // تحسين اختيار الصور للخلفية - تقليل العدد إلى 3 صور فقط
           const subcategoryGroups = {};
           productsWithImages.forEach(product => {
             const subcategory = product.subcategory || product.category || 'أخرى';
@@ -41,11 +41,11 @@ export default function HomePage() {
             subcategoryGroups[subcategory].push(product);
           });
           
-          // تقليل عدد الصور إلى 5 بدلاً من 10 لتحسين الأداء
+          // اختيار 3 صور فقط لتحسين الأداء
           const selectedImages = [];
           const subcategories = Object.keys(subcategoryGroups);
           
-          for (let i = 0; i < Math.min(5, subcategories.length); i++) {
+          for (let i = 0; i < Math.min(3, subcategories.length); i++) {
             const subcategory = subcategories[i];
             const randomProduct = subcategoryGroups[subcategory][
               Math.floor(Math.random() * subcategoryGroups[subcategory].length)
@@ -59,38 +59,53 @@ export default function HomePage() {
           
           setBackgroundImages(selectedImages);
           
-          // تحميل الصور مسبقاً
+          // تحميل الصور مسبقاً مع timeout سريع
           const imagePromises = selectedImages.map((item, index) => {
             return new Promise((resolve) => {
               const img = new window.Image();
-              img.onload = () => resolve();
-              img.onerror = () => resolve(); // حتى لو فشل التحميل
+              const timeout = setTimeout(() => resolve(), 1000); // timeout بعد ثانية واحدة
+              
+              img.onload = () => {
+                clearTimeout(timeout);
+                resolve();
+              };
+              img.onerror = () => {
+                clearTimeout(timeout);
+                resolve();
+              };
               img.src = item.image;
             });
           });
           
-          // انتظار تحميل أول صورتين على الأقل
-          Promise.all(imagePromises.slice(0, 2)).then(() => {
+          // انتظار تحميل الصورة الأولى فقط أو انتهاء timeout
+          Promise.race([
+            imagePromises[0],
+            new Promise(resolve => setTimeout(resolve, 800)) // إظهار المحتوى بعد 0.8 ثانية كحد أقصى
+          ]).then(() => {
             setImagesLoaded(true);
           });
+          
+          // تحميل باقي الصور في الخلفية
+          Promise.all(imagePromises);
         }
       } catch (error) {
         console.error('خطأ في جلب صور المنتجات:', error);
-        setImagesLoaded(true); // إظهار المحتوى حتى لو فشل التحميل
+        // إظهار المحتوى فوراً في حالة الخطأ
+        setTimeout(() => setImagesLoaded(true), 500);
       }
     };
 
     fetchProductImages();
   }, []);
 
-  // تغيير الصورة كل 3 ثوان بدلاً من ثانيتين
+  // تغيير الصورة كل 4 ثوان
   useEffect(() => {
     if (backgroundImages.length > 0 && imagesLoaded) {
       const interval = setInterval(() => {
         setCurrentImageIndex((prevIndex) => 
           (prevIndex + 1) % backgroundImages.length
         );
-      }, 3000); // تغيير كل 3 ثوان
+      }, 4000); // تغيير كل 4 ثوان
 
       return () => clearInterval(interval);
     }
@@ -100,23 +115,23 @@ export default function HomePage() {
     <div className="min-h-screen">
       {/* قسم الترحيب مع الخلفية المتحركة */}
       <section className="relative h-screen overflow-hidden">
-        {/* Loading state للخلفية */}
+        {/* Loading state محسن */}
         {!imagesLoaded && (
           <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
             <div className="text-center text-white">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-              <p className="text-lg">جاري تحميل الصور...</p>
+              <div className="animate-pulse rounded-full h-12 w-12 bg-white/30 mx-auto mb-4"></div>
+              <p className="text-lg">جاري التحضير...</p>
             </div>
           </div>
         )}
         
-        {/* الخلفيات المتحركة */}
-        {backgroundImages.length > 0 && imagesLoaded && (
+        {/* الخلفيات المتحركة مع تحسينات */}
+        {backgroundImages.length > 0 && (
           <div className="absolute inset-0">
             {backgroundImages.map((item, index) => (
               <div
                 key={index}
-                className={`absolute inset-0 transition-opacity duration-1000 ${
+                className={`absolute inset-0 transition-opacity duration-700 ${
                   index === currentImageIndex ? 'opacity-100' : 'opacity-0'
                 }`}
               >
@@ -125,11 +140,12 @@ export default function HomePage() {
                   alt={item.name}
                   fill
                   className="object-cover"
-                  priority={index === 0}
+                  priority={index === 0} // أولوية للصورة الأولى فقط
                   sizes="100vw"
-                  quality={75} // تقليل الجودة لتحسين الأداء
+                  quality={60} // تقليل الجودة أكثر لتحسين السرعة
                   placeholder="blur"
-                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                  loading={index === 0 ? 'eager' : 'lazy'} // تحميل فوري للصورة الأولى فقط
                 />
               </div>
             ))}
@@ -152,7 +168,7 @@ export default function HomePage() {
               </Link>
               
               <Link href="/menu?filter=popular" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 inline-block shadow-lg hover:shadow-xl hover:scale-105">
-                🔥 الأكثر مبيعاً
+                🔥 {t.bestSellers}
               </Link>
               
               <button 
@@ -163,7 +179,7 @@ export default function HomePage() {
                 }}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 inline-block shadow-lg hover:shadow-xl hover:scale-105"
               >
-                💬 اكتب تعليق
+                💬 {t.writeReview}
               </button>
             </div>
           </div>
@@ -202,7 +218,8 @@ export default function HomePage() {
       {popularProducts.length > 0 && (
         <section className="py-16 bg-white">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">🔥 الأكثر مبيعاً</h2>
+            
+            <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">🔥 {t.bestSellers}</h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {popularProducts.map((product, index) => (

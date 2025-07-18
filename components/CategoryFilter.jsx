@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }) {
-  const { t } = useLanguage();
+  const { t, getCategoryTranslation, getSubcategoryTranslation } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [categoriesWithSubs, setCategoriesWithSubs] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // جلب الفئات من قاعدة البيانات
   useEffect(() => {
@@ -18,27 +19,18 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
         if (response.ok) {
           const data = await response.json();
           setCategoriesWithSubs(data);
+          setError(null);
         } else {
           console.error('فشل في جلب الفئات');
-          // استخدام الفئات الافتراضية المرتبة في حالة الفشل
-          setCategoriesWithSubs({
-            'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
-            'إفطار': ['فطائر', 'بيض', 'خبز وتوست', 'حبوب', 'فواكه'],
-            'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
-            'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
-            'مشروبات': ['مشروبات ساخنة', 'عصائر طبيعية', 'مشروبات باردة', 'عصائر مخلوطة']
-          });
+          setError('فشل في جلب الفئات من الخادم');
+          // لا نستخدم فئات افتراضية - نترك الكائن فارغاً
+          setCategoriesWithSubs({});
         }
       } catch (error) {
         console.error('خطأ في جلب الفئات:', error);
-        // استخدام الفئات الافتراضية المرتبة
-        setCategoriesWithSubs({
-          'مقبلات': ['سلطات', 'شوربات', 'مقبلات باردة', 'مقبلات ساخنة'],
-          'إفطار': ['فطائر', 'بيض', 'خبز وتوست', 'حبوب', 'فواكه'],
-          'أطباق رئيسية': ['لحوم', 'دجاج', 'أسماك', 'نباتي', 'معكرونة', 'أرز'],
-          'حلويات': ['حلويات شرقية', 'حلويات غربية', 'آيس كريم', 'كيك'],
-          'مشروبات': ['مشروبات ساخنة', 'عصائر طبيعية', 'مشروبات باردة', 'عصائر مخلوطة']
-        });
+        setError('خطأ في الاتصال بالخادم');
+        // لا نستخدم فئات افتراضية - نترك الكائن فارغاً
+        setCategoriesWithSubs({});
       } finally {
         setLoading(false);
       }
@@ -68,6 +60,30 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
       </div>
     );
   }
+
+  // إذا كان هناك خطأ أو لا توجد فئات
+  if (error || Object.keys(categoriesWithSubs).length === 0) {
+    return (
+      <div className="mb-6">
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+          {error ? (
+            <p>{error}</p>
+          ) : (
+            <p>لا توجد فئات متاحة. يرجى إضافة منتجات أولاً لإنشاء الفئات.</p>
+          )}
+        </div>
+        {/* عرض زر "الكل" فقط */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleCategoryChange('all')}
+            className="px-4 py-2 rounded-full bg-green-500 text-white"
+          >
+            {t.all || 'الكل'}
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="mb-6">
@@ -81,9 +97,10 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          {t.all}
+          {t.all || 'الكل'}
         </button>
         {Object.keys(categoriesWithSubs).map(category => (
+          // في عرض الفئات الرئيسية
           <button
             key={category}
             onClick={() => handleCategoryChange(category)}
@@ -93,7 +110,7 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            {category}
+            {getCategoryTranslation(category)}
           </button>
         ))}
       </div>
@@ -109,7 +126,7 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            الكل
+            {t.all || 'الكل'}
           </button>
           {categoriesWithSubs[selectedCategory].map(subcategory => (
             <button
@@ -121,7 +138,7 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {subcategory}
+              {getSubcategoryTranslation(selectedCategory, subcategory)}
             </button>
           ))}
         </div>

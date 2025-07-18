@@ -30,7 +30,8 @@ const translations = {
     fastServiceDesc: 'نقدم خدمة سريعة وفعالة لضمان رضا عملائنا',
     uniqueExperience: 'تجربة فريدة',
     uniqueExperienceDesc: 'نقدم تجربة طعام فريدة من نوعها لا تنسى',
-    
+     bestSellers: 'الأكثر مبيعًا',
+    writeReview: 'اكتب تعليق',
     // ترجمات صفحة القائمة
     menuTitle: 'قائمة الطعام',
     searchDish: 'ابحث عن طبق...',
@@ -160,7 +161,8 @@ const translations = {
     fastServiceDesc: 'We provide fast and efficient service to ensure customer satisfaction',
     uniqueExperience: 'Unique Experience',
     uniqueExperienceDesc: 'We offer a unique dining experience that you will never forget',
-    
+    bestSellers: 'Best Sellers',
+    writeReview: 'Write a Review',
     // Menu page translations
     menuTitle: 'Food Menu',
     searchDish: 'Search for a dish...',
@@ -266,6 +268,7 @@ const translations = {
 // إنشاء سياق اللغة
 const LanguageContext = createContext();
 
+// تبديل اللغة مع تحسينات الأداء
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState('ar');
   const [t, setT] = useState(translations.ar);
@@ -286,37 +289,23 @@ export function LanguageProvider({ children }) {
     document.body.classList.add(`lang-${savedLanguage}`);
   }, []);
   
-  // تبديل اللغة مع تحسينات الأداء
   const toggleLanguage = useCallback(() => {
-    setIsLoading(true);
+    const newLanguage = language === 'ar' ? 'en' : 'ar';
     
-    // استخدام requestAnimationFrame لضمان التحديث السلس
-    requestAnimationFrame(() => {
-      const newLanguage = language === 'ar' ? 'en' : 'ar';
-      
-      // تحدية الحالة
-      setLanguage(newLanguage);
-      setT(translations[newLanguage]);
-      
-      // حفظ في localStorage
-      localStorage.setItem('language', newLanguage);
-      
-      // تغيير اتجاه الصفحة والخصائص
-      document.documentElement.dir = newLanguage === 'ar' ? 'rtl' : 'ltr';
-      document.documentElement.lang = newLanguage;
-      
-      // تحديث كلاس CSS للغة
-      document.body.className = document.body.className.replace(/\blang-\w+\b/g, '');
-      document.body.classList.add(`lang-${newLanguage}`);
-      
-      // إضافة تأثير انتقالي سلس
-      document.body.style.transition = 'all 0.3s ease-in-out';
-      
-      // إنهاء حالة التحميل
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 100);
-    });
+    // تحدية الحالة
+    setLanguage(newLanguage);
+    setT(translations[newLanguage]);
+    
+    // حفظ في localStorage
+    localStorage.setItem('language', newLanguage);
+    
+    // تغيير اتجاه الصفحة والخصائص فوراً
+    document.documentElement.dir = newLanguage === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = newLanguage;
+    
+    // تحديث كلاس CSS للغة
+    document.body.className = document.body.className.replace(/\blang-\w+\b/g, '');
+    document.body.classList.add(`lang-${newLanguage}`);
   }, [language]);
   
   // دالة للحصول على ترجمة الفئة
@@ -326,7 +315,14 @@ export function LanguageProvider({ children }) {
   
   // دالة للحصول على ترجمة الفئة الفرعية
   const getSubcategoryTranslation = useCallback((subcategory) => {
-    return t.subcategories?.[subcategory] || subcategory;
+    // البحث في الترجمات أولاً
+    const translation = t.subcategories?.[subcategory];
+    if (translation) {
+      return translation;
+    }
+    
+    // إذا لم توجد ترجمة، إرجاع النص الأصلي
+    return subcategory;
   }, [t]);
   
   const value = {
