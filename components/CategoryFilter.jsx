@@ -5,7 +5,7 @@ import { useLanguage } from '@/context/LanguageContext';
 
 export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }) {
   const { t, getCategoryTranslation, getSubcategoryTranslation } = useLanguage();
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(null); // تغيير من 'all' إلى null
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [categoriesWithSubs, setCategoriesWithSubs] = useState({});
   const [loading, setLoading] = useState(true);
@@ -20,6 +20,13 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
           const data = await response.json();
           setCategoriesWithSubs(data);
           setError(null);
+          
+          // تعيين أول فئة كفئة افتراضية بدلاً من 'all'
+          const firstCategory = Object.keys(data)[0];
+          if (firstCategory) {
+            setSelectedCategory(firstCategory);
+            onCategoryChange(firstCategory);
+          }
         } else {
           console.error('فشل في جلب الفئات');
           setError('فشل في جلب الفئات من الخادم');
@@ -138,7 +145,7 @@ export default function CategoryFilter({ onCategoryChange, onSubcategoryChange }
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {getSubcategoryTranslation(selectedCategory, subcategory)}
+              {getSubcategoryTranslation(subcategory)}
             </button>
           ))}
         </div>

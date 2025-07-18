@@ -26,7 +26,7 @@ function ProductSkeleton() {
 function MenuContent() {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(null); // تغيير من 'all' إلى null
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -95,9 +95,12 @@ function MenuContent() {
       filtered = filtered.filter(product => product.isPopular);
     }
 
-    // فلترة حسب الفئة
-    if (selectedCategory !== 'all') {
+    // فلترة حسب الفئة - إذا لم تكن محددة، لا نعرض أي منتجات
+    if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(product => product.category === selectedCategory);
+    } else if (selectedCategory === null) {
+      // إذا لم تكن هناك فئة محددة بعد، لا نعرض منتجات
+      filtered = [];
     }
 
     // فلترة حسب الفئة الفرعية
